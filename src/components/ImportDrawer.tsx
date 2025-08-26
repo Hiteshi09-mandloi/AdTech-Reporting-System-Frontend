@@ -178,7 +178,7 @@ export default function ImportDrawer({
         setUploading(false);
         message.error("API request failed");
       }
-    }, 1000); // Poll every 1 second for more responsive UI
+    }, 5000); // Poll every 5 second for more responsive UI
   };
 
   const handleUpload = async () => {
