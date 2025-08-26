@@ -2,12 +2,12 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   Upload,
   Button,
-  message,
   Typography,
   Space,
   Divider,
   Progress,
   Drawer,
+  App,
 } from "antd";
 import { FileTextOutlined } from "@ant-design/icons";
 import type { RcFile, UploadFile, UploadProps } from "antd/es/upload";
@@ -17,28 +17,44 @@ const { Text } = Typography;
 const { Dragger } = Upload;
 
 // --- Constants ---
-export const EXPECTED_HEADERS = [
-  "timestamp", // Date
-  "mobile_app_resolved_id", // App ID
-  "mobile_app_name", // App Name
+// 11 Required Dimensions
+export const REQUIRED_DIMENSIONS = [
+  "date", // Date
+  "mobile_app_resolved_id", // Mobile App Resolved ID
+  "mobile_app_name", // Mobile App Name
+  "ad_unit_name", // Ad Unit Name
+  "inventory_format_name", // Inventory Format Name
   "domain", // Domain
-  "ad_unit_name", // Ad Unit
+  "operating_system_version_name", // Operating System Version Name
+  "operating_system_name", // Operating System Name
+  "country_name", // Country Name
+  "country_criteria_id", // Country Criteria ID
   "ad_unit_id", // Ad Unit ID
-  "inventory_format_name", // Inventory Format
-  "operating_system_version_name", // OS Version
-  "ad_exchange_total_requests", // Total Requests
-  "ad_exchange_responses_served", // Responses Served
-  "ad_exchange_match_rate", // Match Rate
-  "ad_exchange_line_item_level_impressions", // Impressions
-  "ad_exchange_line_item_level_clicks", // Clicks
-  "ad_exchange_line_item_level_ctr", // CTR
+];
+
+// 8 Metrics
+export const METRICS = [
+  "ad_exchange_total_requests", // AD Exchange Total Requests
+  "ad_exchange_responses_served", // AD Exchange Responses Served
+  "ad_exchange_line_item_level_impressions", // AD Exchange Line Item Level Impressions
+  "ad_exchange_line_item_level_clicks", // AD Exchange Line Item Level Clicks
   "average_ecpm", // Average eCPM
   "payout", // Payout
+  "ad_exchange_cost_per_click", // AD Exchange Cost Per Click
+  "ad_exchange_line_item_level_ctr", // AD Exchange Line Item Level CTR
+  "ad_exchange_match_rate", // AD Exchange Match Rate
+];
+
+// All expected headers (dimensions + metrics)
+export const EXPECTED_HEADERS = [
+  ...REQUIRED_DIMENSIONS,
+  ...METRICS,
 ];
 
 // Mapping for user-friendly display names
 const HEADER_DISPLAY_NAMES: { [key: string]: string } = {
-  timestamp: "Date",
+  // Dimensions
+  date: "Date",
   mobile_app_resolved_id: "App ID",
   mobile_app_name: "App Name",
   domain: "Domain",
@@ -46,6 +62,11 @@ const HEADER_DISPLAY_NAMES: { [key: string]: string } = {
   ad_unit_id: "Ad Unit ID",
   inventory_format_name: "Inventory Format",
   operating_system_version_name: "OS Version",
+  operating_system_name: "OS",
+  country_name: "Country",
+  country_criteria_id: "Country ID",
+  
+  // Metrics
   ad_exchange_total_requests: "Total Requests",
   ad_exchange_responses_served: "Responses Served",
   ad_exchange_match_rate: "Match Rate",
@@ -54,22 +75,31 @@ const HEADER_DISPLAY_NAMES: { [key: string]: string } = {
   ad_exchange_line_item_level_ctr: "CTR",
   average_ecpm: "Average eCPM",
   payout: "Payout",
+  ad_exchange_cost_per_click: "Cost Per Click",
 };
 
 // --- File validation function ---
-const validateFile = async (file: RcFile): Promise<boolean> => {
+const validateFile = async (file: RcFile): Promise<{ isValid: boolean; missingHeaders: string[] }> => {
   try {
     const text = await file.text();
     const firstLine = text.split("\n")[0].trim();
-    const headers = firstLine.split(",").map((h) => h.trim().toLowerCase());
+    const headers = firstLine.split(",").map((h) => h.trim());
 
-    const isValid = EXPECTED_HEADERS.every((h) => headers.includes(h));
-    if (!isValid) {
-      throw new Error(
-        "Invalid file headers. Please upload a file with correct headers."
-      );
-    }
-    return true;
+    // Create a mapping from user-friendly names to internal field names
+    const userFriendlyToInternal: { [key: string]: string } = {};
+    Object.entries(HEADER_DISPLAY_NAMES).forEach(([internalName, userFriendlyName]) => {
+      userFriendlyToInternal[userFriendlyName] = internalName;
+    });
+
+    // Check only required dimensions using user-friendly names
+    const missingHeaders = REQUIRED_DIMENSIONS.filter((internalName) => {
+      const userFriendlyName = HEADER_DISPLAY_NAMES[internalName];
+      return !headers.includes(userFriendlyName);
+    });
+    
+    const isValid = missingHeaders.length === 0;
+
+    return { isValid, missingHeaders };
   } catch (error) {
     throw error;
   }
@@ -86,11 +116,14 @@ export default function ImportDrawer({
   onClose,
   onImportComplete,
 }: ImportDrawerProps) {
+  const { message } = App.useApp();
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const [showHeaders, setShowHeaders] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
   const [progress, setProgress] = useState<ImportProgress | null>(null);
+  const [validationError, setValidationError] = useState<string[]>([]);
+  const [isFileValid, setIsFileValid] = useState(false);
 
   // Use useRef to store the interval ID to prevent it from being lost on re-renders
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -139,11 +172,11 @@ export default function ImportDrawer({
             onImportComplete();
           }
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Progress polling failed:", error);
         stopProgressPolling();
         setUploading(false);
-        message.error("Failed to track progress. Import may still be running.");
+        message.error("API request failed");
       }
     }, 1000); // Poll every 1 second for more responsive UI
   };
@@ -159,7 +192,9 @@ export default function ImportDrawer({
     setJobId(null);
 
     try {
+      console.log("Starting file upload...");
       const response = await uploadCsvData(selectedFile.originFileObj as File);
+      console.log("Upload response:", response);
 
       // Extract job ID from response (e.g., "CSV import started successfully with job ID: 123")
       const jobIdMatch = response.match(/job ID: (\d+)/);
@@ -179,7 +214,13 @@ export default function ImportDrawer({
       setFileList([]);
     } catch (error: any) {
       console.error("File upload failed:", error);
-      message.error(error.message || "File upload failed. Please try again.");
+      console.error("Error details:", {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        url: error.config?.url
+      });
+      message.error("API request failed");
       setUploading(false);
     }
   };
@@ -206,20 +247,36 @@ export default function ImportDrawer({
 
     beforeUpload: async (file: RcFile) => {
       try {
-        const isValid = await validateFile(file);
-        if (isValid) {
+        const validation = await validateFile(file);
+        if (validation.isValid) {
           message.success(`${file.name} selected successfully.`);
+          setIsFileValid(true);
+          setValidationError([]);
           return Promise.resolve(file);
+        } else {
+          const missingHeadersText = validation.missingHeaders
+            .map(h => HEADER_DISPLAY_NAMES[h] || h)
+            .join(", ");
+          const errorMessage = `Missing required headers: ${missingHeadersText}`;
+          message.error(errorMessage);
+          setIsFileValid(false);
+          setValidationError(validation.missingHeaders);
+          return Promise.reject(new Error(errorMessage));
         }
-        return Promise.reject("File validation failed.");
       } catch (error: any) {
         message.error(
           error.message || "File validation failed. Please check file headers."
         );
+        setIsFileValid(false);
+        setValidationError([]);
         return Promise.reject(error);
       }
     },
 
+    customRequest: ({ file, onSuccess, onError }) => {
+      // This prevents the default upload behavior
+      onSuccess?.(file);
+    },
     fileList,
     accept: ".csv",
     maxCount: 1,
@@ -229,6 +286,8 @@ export default function ImportDrawer({
     // Only reset UI state, keep progress state if upload is in progress
     setFileList([]);
     setShowHeaders(false);
+    setValidationError([]);
+    setIsFileValid(false);
 
     // Only reset progress state if the upload is actually completed or there's no active job
     if (!uploading && (!progress || progress.currentPhase === "Completed")) {
@@ -255,7 +314,7 @@ export default function ImportDrawer({
       <Space direction="vertical" style={{ width: "100%" }} size="large">
         <Text>
           To begin, please upload your ad report CSV file. The file must contain
-          all of the following columns:
+          all of the following 11 required dimensions:
         </Text>
 
         <Button
@@ -269,10 +328,10 @@ export default function ImportDrawer({
         {showHeaders && (
           <>
             <Divider orientation="left" style={{ margin: "8px 0" }}>
-              Required Headers
+              Required Dimensions (11 fields)
             </Divider>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-              {EXPECTED_HEADERS.map((header: string, index: number) => (
+              {REQUIRED_DIMENSIONS.map((header: string, index: number) => (
                 <Text
                   code
                   key={index}
@@ -288,6 +347,14 @@ export default function ImportDrawer({
                 </Text>
               ))}
             </div>
+            
+            {validationError.length > 0 && (
+              <div style={{ marginTop: "12px" }}>
+                <Text type="danger" style={{ fontSize: "12px" }}>
+                  ❌ Missing required headers: {validationError.map(h => HEADER_DISPLAY_NAMES[h] || h).join(", ")}
+                </Text>
+              </div>
+            )}
           </>
         )}
 
@@ -610,12 +677,12 @@ export default function ImportDrawer({
         <Button
           type="primary"
           onClick={handleUpload}
-          disabled={!selectedFile || uploading}
+          disabled={!selectedFile || uploading || !isFileValid}
           loading={uploading}
           style={{ marginTop: "16px", width: "100%" }}
           size="large"
         >
-          {uploading ? "Processing..." : "Start Upload"}
+          {uploading ? "Processing..." : !isFileValid ? "File Validation Failed" : "Start Upload"}
         </Button>
       </Space>
     </Drawer>

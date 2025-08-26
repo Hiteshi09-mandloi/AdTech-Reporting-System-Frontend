@@ -1,5 +1,6 @@
-import { useEffect, useState, useCallback, useMemo } from "react";//hooks
-import { Typography, message } from "antd";
+/* eslint-disable react-hooks/exhaustive-deps */
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { Typography, App } from "antd";
 import {
   getReport,
   aggregateReport,
@@ -37,14 +38,17 @@ interface AllFilters {
 }
 
 const DIMENSIONS_OPTIONS = [
-  { label: "Mobile ID", value: "mobile_app_resolved_id" },
-  { label: "App Name", value: "mobile_app_name" },
-  { label: "Domain", value: "domain" },
-  { label: "Ad Unit Name", value: "ad_unit_name" },
-  { label: "Ad Unit ID", value: "ad_unit_id" },
-  { label: "Format", value: "inventory_format_name" },
-  { label: "OS Version", value: "operating_system_version_name" },
   { label: "Date", value: "date" },
+  { label: "App ID", value: "mobile_app_resolved_id" },
+  { label: "App Name", value: "mobile_app_name" },
+  { label: "Ad Unit", value: "ad_unit_name" },
+  { label: "Inventory Format", value: "inventory_format_name" },
+  { label: "Domain", value: "domain" },
+  { label: "OS Version", value: "operating_system_version_name" },
+  { label: "OS", value: "operating_system_name" },
+  { label: "Country", value: "country_name" },
+  { label: "Country ID", value: "country_criteria_id" },
+  { label: "Ad Unit ID", value: "ad_unit_id" },
 ];
 
 const METRICS_OPTIONS = [
@@ -54,7 +58,7 @@ const METRICS_OPTIONS = [
   { label: "Impressions", value: "ad_exchange_line_item_level_impressions" },
   { label: "Clicks", value: "ad_exchange_line_item_level_clicks" },
   { label: "CTR", value: "ad_exchange_line_item_level_ctr" },
-  { label: "eCPM", value: "average_ecpm" },
+  { label: "Average eCPM", value: "average_ecpm" },
   { label: "Payout", value: "payout" },
 ];
 
@@ -62,6 +66,7 @@ const CHUNK_SIZE = 20000;
 const DEFAULT_PAGE_SIZE = 100;
 
 const DashboardPage = () => {
+  const { message } = App.useApp();
   const [availableDimensions] = useState<string[]>(
     DIMENSIONS_OPTIONS.map((d) => d.value)
   );

@@ -1,9 +1,22 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || "https://reporting-system-y96g.onrender.com/api",
+  baseURL: process.env.REACT_APP_API_URL || "http://localhost:8080/api",
   timeout: 60000,
+  maxRedirects: 0, // Prevent automatic redirects
 });
+
+// Add request interceptor for debugging
+api.interceptors.request.use(
+  (config) => {
+    console.log("Making request to:", config.url);
+    return config;
+  },
+  (error) => {
+    console.error("Request error:", error);
+    return Promise.reject(error);
+  }
+);
 
 // --- API Interfaces ---
 export interface ReportQueryRequest {
@@ -100,10 +113,10 @@ api.interceptors.response.use(
         // that falls out of the range of 2xx
         console.error("API Error Response:", error.response.data);
         console.error("API Error Status:", error.response.status);
-        throw new Error(
-          error.response.data.message ||
-            `Server Error: ${error.response.status}`
-        );
+        
+        // Preserve the original axios error structure so components can access response data
+        // Just throw the original error to maintain access to error.response.data
+        throw error;
       } else if (error.request) {
         // The request was made but no response was received
         console.error("API Error Request:", error.request);
@@ -129,14 +142,17 @@ export const uploadCsvData = async (file: File): Promise<string> => {
   formData.append("file", file);
 
   try {
+    console.log("Making API call to /reports/upload");
     const response = await api.post<string>("/reports/upload", formData, {
       headers: {
         "Content-Type": "multipart/form-data",
       },
     });
+    console.log("API response received:", response);
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error in uploadCsvData:", error);
+    console.error("Error response:", error.response);
     throw error;
   }
 };

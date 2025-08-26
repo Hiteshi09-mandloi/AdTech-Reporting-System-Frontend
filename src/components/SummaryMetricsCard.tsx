@@ -32,6 +32,7 @@ export default function SummaryMetricsCard({
       style={{ marginBottom: "24px" }}
     >
       <Row gutter={[16, 16]} justify="space-between">
+        {/* Total Requests */}
         <Col xs={24} sm={12} md={12} lg={6} xl={6}>
           <Card
             style={{
@@ -40,14 +41,8 @@ export default function SummaryMetricsCard({
               borderRadius: "8px",
             }}
           >
-            <Space
-              direction="vertical"
-              align="center"
-              style={{ width: "100%" }}
-            >
-              <DashboardOutlined
-                style={{ fontSize: "24px", color: "#1890ff" }}
-              />
+            <Space direction="vertical" align="center" style={{ width: "100%" }}>
+              <DashboardOutlined style={{ fontSize: "24px", color: "#1890ff" }} />
               <Text>Total Requests</Text>
               {summaryLoading ? (
                 <Spin size="small" />
@@ -57,6 +52,8 @@ export default function SummaryMetricsCard({
             </Space>
           </Card>
         </Col>
+
+        {/* Impressions */}
         <Col xs={24} sm={12} md={12} lg={6} xl={6}>
           <Card
             style={{
@@ -65,11 +62,7 @@ export default function SummaryMetricsCard({
               borderRadius: "8px",
             }}
           >
-            <Space
-              direction="vertical"
-              align="center"
-              style={{ width: "100%" }}
-            >
+            <Space direction="vertical" align="center" style={{ width: "100%" }}>
               <EyeOutlined style={{ fontSize: "24px", color: "#faad14" }} />
               <Text>Impressions</Text>
               {summaryLoading ? (
@@ -82,6 +75,8 @@ export default function SummaryMetricsCard({
             </Space>
           </Card>
         </Col>
+
+        {/* Clicks */}
         <Col xs={24} sm={12} md={12} lg={6} xl={6}>
           <Card
             style={{
@@ -90,14 +85,8 @@ export default function SummaryMetricsCard({
               borderRadius: "8px",
             }}
           >
-            <Space
-              direction="vertical"
-              align="center"
-              style={{ width: "100%" }}
-            >
-              <InteractionOutlined
-                style={{ fontSize: "24px", color: "#9254de" }}
-              />
+            <Space direction="vertical" align="center" style={{ width: "100%" }}>
+              <InteractionOutlined style={{ fontSize: "24px", color: "#9254de" }} />
               <Text>Clicks</Text>
               {summaryLoading ? (
                 <Spin size="small" />
@@ -107,6 +96,8 @@ export default function SummaryMetricsCard({
             </Space>
           </Card>
         </Col>
+
+        {/* Total Payout */}
         <Col xs={24} sm={12} md={12} lg={6} xl={6}>
           <Card
             style={{
@@ -115,21 +106,13 @@ export default function SummaryMetricsCard({
               borderRadius: "8px",
             }}
           >
-            <Space
-              direction="vertical"
-              align="center"
-              style={{ width: "100%" }}
-            >
-              <DollarCircleOutlined
-                style={{ fontSize: "24px", color: "#13c2c2" }}
-              />
+            <Space direction="vertical" align="center" style={{ width: "100%" }}>
+              <DollarCircleOutlined style={{ fontSize: "24px", color: "#13c2c2" }} />
               <Text>Total Payout</Text>
               {summaryLoading ? (
                 <Spin size="small" />
               ) : (
-                <Text strong>
-                  ${formatNumber(summaryData.totalPayout, true)}
-                </Text>
+                <Text strong>{formatNumber(summaryData.totalPayout, true)}</Text>
               )}
             </Space>
           </Card>
